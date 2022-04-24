@@ -1,0 +1,23 @@
+bno055:
+    ros__parameters:
+#       ros_topic_prefix: "bno055/"
+#       connection_type: "uart"
+        uart_port: "/dev/ttyAMA2"
+#       uart_baudrate: 115200
+#       uart_timeout: 0.1
+        frame_id: "imu_link"
+#       data_query_frequency: 0
+#       calib_status_frequency: 0.1
+#       operation_mode: 12
+        placement_axis_remap: "P2"
+#       acc_factor: 100.0
+#       mag_factor: 16000000.0
+#       gyr_factor: 900.0
+#       set_offsets: False
+#       offset_acc: [65516, 165, 65512]
+#       offset_mag: [65460, 65182, 637]
+#       offset_gyr: [2, 65535, 65535]
+#       variance_acc: [0.017, 0.017, 0.017]
+#       variance_angular_vel: [0.04, 0.04, 0.04]
+#       variance_orientation: [0.0159, 0.0159, 0.0159]
+#       variance_mag: [0.0, 0.0, 0.0]
