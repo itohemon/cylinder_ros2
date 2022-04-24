@@ -35,6 +35,14 @@ terminal#2
 ```shell-session
 ros2 launch cylinder_ros2 online_async_launch.py
 ```
+
+### map保存
+terminal#3
+```shell-session
+cd /home/ubuntu/ros2_ws/src/cylinder_ros2/cmd
+./map_save.sh <mapname>
+```
+
 ### Nav2起動
 terminal#3
 ```shell-session
