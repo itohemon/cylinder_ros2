@@ -1,3 +1,8 @@
+#include <functional>
+#include <future>
+#include <memory>
+#include <thread>
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <cylinder_interfaces/action/cylinder.hpp>
@@ -65,7 +70,7 @@ void CylinderMove::execute()
 
   /*** 前後左右斜め8方向に移動 ***/
   auto goal_msg = Cylinder::Goal();
-  for (int i = 0; i < target_points.size(); i++) {
+  for (auto i = 0; i < 8; i++) {
     /*** 目標地点の設定 ***/
     goal_msg.target.x = target_points[i][0];
     goal_msg.target.y = target_points[i][1];
@@ -108,6 +113,7 @@ void CylinderMove::onGoalResponseReceived(
 void CylinderMove::onFeedbackReceived(GoalHandleCylinder::SharedPtr goal_handle,
   const std::shared_ptr<const Cylinder::Feedback> feedback)
 {
+  (void)goal_handle;
   RCLCPP_INFO(this->get_logger(), "Pose: (%.2f, %.2f)",
     feedback->pose.position.x, feedback->pose.position.y);
 }
@@ -124,7 +130,7 @@ void CylinderMove::onResultReceived(const GoalHandleCylinder::WrappedResult &res
       break;
     /*** アクションが何らかの原因で終了した場合 ***/
     case rclcpp_action::ResultCode::ABORTED:
-      RCLCPP_ERROR(this->get_logger(), "Goal wa abortded");
+      RCLCPP_ERROR(this->get_logger(), "Goal was abortded");
       break;
     /*** アクションが中断された場合 ***/
     case rclcpp_action::ResultCode::CANCELED:

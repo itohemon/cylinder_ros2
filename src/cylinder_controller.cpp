@@ -152,6 +152,8 @@ void CylinderController::onDistanceSubscribed(const Float64::SharedPtr distance)
 /*** ゴールが設定されたときに呼び出されるコールバック関数 ***/
 GoalResponse CylinderController::onGoalSet(const GoalUUID & uuid, GoalPtr goal)
 {
+  (void)uuid;
+  (void)goal;
   RCLCPP_INFO(this->get_logger(), "Received goal request");
   return GoalResponse::ACCEPT_AND_EXECUTE;
 }
@@ -159,6 +161,7 @@ GoalResponse CylinderController::onGoalSet(const GoalUUID & uuid, GoalPtr goal)
 /*** アクションがキャンセルされたときに呼び出されるコールバック関数 ***/
 CancelResponse CylinderController::onActionCanceled(const GoalHandleCylinderPtr goal_handle)
 {
+  (void) goal_handle;
   RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
   return CancelResponse::ACCEPT;
 }

@@ -18,6 +18,8 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -28,12 +30,15 @@ find_package(cylinder_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core highgui)
 
 add_executable(cylinder_status
   src/cylinder_status.cpp
   )
 ament_target_dependencies(cylinder_status
   rclcpp
+  rclcpp_action
+  rclcpp_components
   geometry_msgs
   nav_msgs
   sensor_msgs
@@ -82,7 +87,10 @@ add_library(${PROJECT_NAME} SHARED
   )
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
+  rclcpp_action
+  rclcpp_components
   std_msgs
+  nav_msgs
   geometry_msgs
   cylinder_interfaces
   )
@@ -98,6 +106,7 @@ ament_target_dependencies(apriltag_detect
   sensor_msgs
   apriltag_msgs
   message_filters
+  OpenCV
   )
 
 if(BUILD_TESTING)

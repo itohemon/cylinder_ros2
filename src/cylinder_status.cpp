@@ -30,7 +30,7 @@ public:
   CylinderStatus() : Node("cylinder_status")
   {
     publish_tf_ = true;
-    this->declare_parameter("publish_tf");
+//    this->declare_parameter("publish_tf");
     this->get_parameter("publish_tf", publish_tf_);
 
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
@@ -84,9 +84,8 @@ void CylinderStatus::wheelStateCb(const std_msgs::msg::Float32MultiArray::Shared
   double vy = 0.0;
   double vth = WHEEL_RAD * (wR - wL) / WHEEL_SEP;
 
-  rclcpp::Duration duration(current_time.nanoseconds() - last_time.nanoseconds());
   last_time = current_time;
-  double dt = duration.seconds();
+  double dt = current_time.seconds() - last_time.seconds();
   double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
   double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
   double delta_th = vth * dt;
