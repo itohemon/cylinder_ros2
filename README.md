@@ -20,6 +20,24 @@ export PICO_SDK_PATH=/home/ubuntu/pico-sdk
 ### LD06, BNO055のノードセットアップ
 [zennの記事](https://zenn.dev/katsuitoh/articles/af8b36a26ab66e)を参考にセットアップする
 
+## RaspberryPi Picoへのファームウェアインストール
+```shell-session
+cd ~/ros2_ws/src/cylinder_ros2/
+mkdir build
+cd build
+cmake ..
+make
+```
+
+コンパイル完了したら、RaspberryPiPicoをUbuntuから見えるよう以下実行
+1. BOOTSELを押しながらUSB接続
+2. BOOTSELを離す
+
+Picoが自動マウントされるのでマウント先に.uf2ファイルをコピーする
+```shell-session
+cp cylinder_ros2_pico_micro_ros.uf2 /media/$USER/RPI-RP2
+```
+
 ## 実行方法
 ### terminal#1
 ```shell-session
