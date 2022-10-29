@@ -28,10 +28,10 @@ const uint BI1   = 4;           /* R側車輪 */
 const uint BI2   = 5;
 const uint PWMB  = 6;
 
-const uint ACHA = 8;            /* L側エンコーダ割込みピン */
-const uint ACHB = 9;
-const uint BCHA = 10;           /* R側エンコーダ割込みピン */
-const uint BCHB = 11;
+const uint ACHA = 9;            /* L側エンコーダ割込みピン */
+const uint ACHB = 8;
+const uint BCHA = 11;           /* R側エンコーダ割込みピン */
+const uint BCHB = 10;
 
 const uint MOSI = 19;           /* Eye LED SPI */
 const uint SCK  = 18;
@@ -506,90 +506,93 @@ int main()
   const int timeout_ms = 1000; 
   const uint8_t attempts = 255;
 
-  rcl_ret_t ret = rmw_uros_ping_agent(timeout_ms, attempts);
+  while (true) {
 
-  if (ret != RCL_RET_OK)
-  {
-    // Unreachable agent, exiting program.
-    return ret;
+    while (true) {
+      rcl_ret_t ret = rmw_uros_ping_agent(timeout_ms, attempts);
+
+      if (ret == RCL_RET_OK)
+      {
+        state = 1;
+        break;
+      }
+    }
+
+    // Initialize support object
+    rclc_support_init(&support, 0, NULL, &allocator);
+    // Create node object
+    rclc_node_init_default(&node, "pico", "", &support);
+
+    // Subscription object
+    rcl_subscription_t subscriber;
+  
+    // Initialize a reliable subscriber
+    rclc_subscription_init_default(&subscriber, &node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+      "cmd_vel"
+      );
+
+    present_wheelState.data.capacity = 4;
+    present_wheelState.data.data = wheelState;
+    present_wheelState.data.size = 0;
+
+    // Create a reliable rcl publisher
+    rclc_publisher_init_default(&publisher, &node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+      "wheel_state");
+
+    // Create a reliable rcl publisher
+    rclc_publisher_init_default(&pub_odometer, &node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+      "odometer");
+
+    // Initialize timer object
+    rclc_timer_init_default(&timer1000, &support,
+      RCL_MS_TO_NS(1000),         /* Timer period on nanoseconds */
+      timer1000_callback);
+
+    // Initialize timer object
+    rclc_timer_init_default(&timer100, &support,
+      RCL_MS_TO_NS(1000 / INTR_HZ), /* Timer period on nanoseconds */
+      timer100_callback);
+
+    // 3つめの引数は通信オブジェクトの数(Timerとsubscriptionの総数)
+    // このプログラムはTimer2つsubscriber1つで通信オブジェクトは3
+    executor = rclc_executor_get_zero_initialized_executor();
+    rclc_executor_init(&executor, &support.context, 3, &allocator);
+    // Add to the executor
+    rclc_executor_add_timer(&executor, &timer1000);
+    rclc_executor_add_timer(&executor, &timer100);
+    rclc_executor_add_subscription(&executor, &subscriber,
+      &cmd_vel, &cmd_vel_Cb, ON_NEW_DATA);
+  
+    gpio_put(LED_PIN, led);
+
+    while (true)
+    {
+      rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
+    }
+    state = 4;
+
+    led = false;
+    gpio_put(LED_PIN, led);
+
+    rclc_executor_fini(&executor);
+    rcl_publisher_fini(&publisher, &node);
+    rcl_publisher_fini(&pub_odometer, &node);
+    rcl_timer_fini(&timer1000);
+    rcl_timer_fini(&timer100);
+    rcl_subscription_fini(&subscriber, &node);
+    rcl_node_fini(&node);
+    rclc_support_fini(&support);
+
+    std_msgs__msg__Float32MultiArray__fini(&present_wheelState);
+    std_msgs__msg__Float64__fini(&presentOdometer);
+    geometry_msgs__msg__Twist__fini(&cmd_vel);
+  
+    state = 0;
+    gpio_put(STBYn, 0);
   }
-
-  state = 1;
-
-  // Initialize support object
-  rclc_support_init(&support, 0, NULL, &allocator);
-  // Create node object
-  rclc_node_init_default(&node, "pico", "", &support);
-
-  // Subscription object
-  rcl_subscription_t subscriber;
-  
-  // Initialize a reliable subscriber
-  rclc_subscription_init_default(&subscriber, &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-    "cmd_vel"
-    );
-
-  present_wheelState.data.capacity = 4;
-  present_wheelState.data.data = wheelState;
-  present_wheelState.data.size = 0;
-
-  // Create a reliable rcl publisher
-  rclc_publisher_init_default(&publisher, &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
-    "wheel_state");
-
-  // Create a reliable rcl publisher
-  rclc_publisher_init_default(&pub_odometer, &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
-    "odometer");
-
-  // Initialize timer object
-  rclc_timer_init_default(&timer1000, &support,
-    RCL_MS_TO_NS(1000),         /* Timer period on nanoseconds */
-    timer1000_callback);
-
-  // Initialize timer object
-  rclc_timer_init_default(&timer100, &support,
-    RCL_MS_TO_NS(1000 / INTR_HZ), /* Timer period on nanoseconds */
-    timer100_callback);
-
-  // 3つめの引数は通信オブジェクトの数(Timerとsubscriptionの総数)
-  // このプログラムはTimer2つsubscriber1つで通信オブジェクトは3
-  executor = rclc_executor_get_zero_initialized_executor();
-  rclc_executor_init(&executor, &support.context, 3, &allocator);
-  // Add to the executor
-  rclc_executor_add_timer(&executor, &timer1000);
-  rclc_executor_add_timer(&executor, &timer100);
-  rclc_executor_add_subscription(&executor, &subscriber,
-    &cmd_vel, &cmd_vel_Cb, ON_NEW_DATA);
-  
-  gpio_put(LED_PIN, led);
-
-  while (true)
-  {
-    rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
-  }
-  state = 4;
-
-  led = false;
-  gpio_put(LED_PIN, led);
-
-  rclc_executor_fini(&executor);
-  rcl_publisher_fini(&publisher, &node);
-  rcl_publisher_fini(&pub_odometer, &node);
-  rcl_timer_fini(&timer1000);
-  rcl_timer_fini(&timer100);
-  rcl_subscription_fini(&subscriber, &node);
-  rcl_node_fini(&node);
-  rclc_support_fini(&support);
-
-  std_msgs__msg__Float32MultiArray__fini(&present_wheelState);
-  std_msgs__msg__Float64__fini(&presentOdometer);
-  geometry_msgs__msg__Twist__fini(&cmd_vel);
-  
-  state = 0;
-  gpio_put(STBYn, 0);
 
   return 0;
 }
