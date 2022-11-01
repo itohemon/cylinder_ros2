@@ -22,6 +22,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -109,6 +110,17 @@ ament_target_dependencies(apriltag_detect
   OpenCV
   )
 
+add_executable(waypoint_follower
+  src/waypoint_follower.cpp
+  )
+ament_target_dependencies(waypoint_follower
+  rclcpp
+  rclcpp_action
+  rclcpp_components
+  nav2_msgs
+  geometry_msgs
+  )
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -127,6 +139,7 @@ install(TARGETS
   moving_robot
   obstacle_avoidance
   apriltag_detect
+  waypoint_follower
   DESTINATION lib/${PROJECT_NAME}
   )
 

@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <robot name="cylinder" xmlns:xacro="http://ros.org/wiki/xacro">
  
  <link name="base_link" />
