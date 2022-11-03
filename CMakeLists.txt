@@ -82,6 +82,15 @@ ament_target_dependencies(obstacle_avoidance
   sensor_msgs
   )
 
+add_executable(nav2_send_goal
+  src/nav2_send_goal.cpp
+  )
+ament_target_dependencies(nav2_send_goal
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  )
+
 add_library(${PROJECT_NAME} SHARED
   src/cylinder_controller.cpp
   src/cylinder_move.cpp
@@ -140,6 +149,7 @@ install(TARGETS
   obstacle_avoidance
   apriltag_detect
   waypoint_follower
+  nav2_send_goal
   DESTINATION lib/${PROJECT_NAME}
   )
 
