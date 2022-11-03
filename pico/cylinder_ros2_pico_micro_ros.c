@@ -18,7 +18,8 @@
 #include <geometry_msgs/msg/twist.h>
 #include <rmw_microros/rmw_microros.h>
 
-#include <pico7219/pico7219.h> // The library's header
+#include <hardware/spi.h>
+#include "eyes.h"
 
 const uint PWMA  = 0;           /* L側車輪 */
 const uint AI2   = 1;
@@ -56,21 +57,7 @@ const int DUTY_CLK = 2500;      /* PWM周波数 */
 
 /* EyePattern */
 #define CHAIN_LEN 2             /* 8x8 LED個数 */
-#define SPI_CHAN  0             /* PicoのSPIのチャネル番号 */
-
-extern uint8_t eyes_sleep[];
-extern uint8_t eyes_open[];
-extern uint8_t eyes_close[];
-extern uint8_t eyes_RR[];
-extern uint8_t eyes_R[];
-extern uint8_t eyes_CR[];
-extern uint8_t eyes_C[];
-extern uint8_t eyes_CL[];
-extern uint8_t eyes_L[];
-extern uint8_t eyes_LL[];
-
-typedef struct Pico7219 Pico7219;
-Pico7219 *pico7219;
+#define SPI_PORT spi0           /* PicoのSPIのチャネル番号 */
 
 /*
  *  A：左車輪
@@ -279,71 +266,43 @@ void readEncoder(uint gpio, uint32_t events)
   }
 }
 
-void eyeOpen()
-{
-  for (int pattern = 0; pattern < 4; pattern++) {
-    for (int i = 0; i < 8; i++) // row
-    {
-      uint8_t v = eyes_open[i + 8 * pattern];
-      for (int j = 0; j < 8; j++) // column
-      {
-        int sel = 1 << j;
-        if (sel & v) {
-          pico7219_switch_on (pico7219, i, j, FALSE);
-          pico7219_switch_on (pico7219, i, j + 8, FALSE);
-        }
-      }
-    }
-    
-    pico7219_flush (pico7219);
-    sleep_ms(100);
-    pico7219_switch_off_all (pico7219, FALSE);
-  }
+static inline void cs_select() {
+  asm volatile("nop \n nop \n nop");
+  gpio_put(CS, 0);
+  asm volatile("nop \n nop \n nop");
+  // Active low
 }
 
-void eyeClose()
-{
-  for (int pattern = 0; pattern < 4; pattern++) {
-    for (int i = 0; i < 8; i++) // row
-    {
-      uint8_t v = eyes_close[i + 8 * pattern];
-      for (int j = 0; j < 8; j++) // column
-      {
-        int sel = 1 << j;
-        if (sel & v) {
-          pico7219_switch_on (pico7219, i, j, FALSE);
-          pico7219_switch_on (pico7219, i, j + 8, FALSE);
-        }
-      }
-    }
-    
-    pico7219_flush (pico7219);
-    sleep_ms(100);
-    pico7219_switch_off_all (pico7219, FALSE);
-  }
+static inline void cs_deselect() {
+  asm volatile("nop \n nop \n nop");
+  gpio_put(CS, 1);
+  asm volatile("nop \n nop \n nop");
 }
 
-void eyeBlink()
-{
-  eyeOpen();
-  eyeClose();
+static void max7219_write(uint8_t reg, uint8_t data) {
+  int i;
+  uint8_t buf[2];
+
+  buf[0] = 0x00 | reg;
+  buf[1] = data;
+
+  cs_select();
+  for (i = 0; i < CHAIN_LEN; i++) {
+    spi_write_blocking(SPI_PORT, buf, 2);
+  }
+  cs_deselect();
 }
 
-void eyeOnePattern(uint8_t *pattern)
+void eyeOnePattern(const uint8_t *pattern, int size)
 {
-  for (int i = 0; i < 8; i++) // row
-  {
-    uint8_t v = pattern[i];
-    for (int j = 0; j < 8; j++) // column
-    {
-      int sel = 1 << j;
-      if (sel & v) {
-        pico7219_switch_on (pico7219, i, j, FALSE);
-        pico7219_switch_on (pico7219, i, j + 8, FALSE);
-      }
+  for (int i = 0; i < size / 8; i++) {
+    uint8_t addr = 0x01;
+    for (int j = 0; j < 8; j++) {
+      max7219_write(addr, pattern[i * 8 + j]);
+      addr++;
     }
+    sleep_ms(10);
   }
-  pico7219_flush (pico7219);
 }
 
 void eyePattern()
@@ -355,49 +314,53 @@ void eyePattern()
     switch (state)
     {
       case 0:
-        eyeOnePattern(eyes_sleep);
+        eyeOnePattern(eyes_sleep, sizeof(eyes_sleep));
         break;
       case 1:
-        eyeOpen();
+        eyeOnePattern(eyes_open, sizeof(eyes_open));
+        sleep_ms(100);
         state = 2;
         break;
       case 2:
         diffOmega = omegaA - omegaB;
 
         if (diffOmega > 4.0) {
-          eyeOnePattern(eyes_LL);
+          eyeOnePattern(eyes_LL, sizeof(eyes_LL));
         }
         else if (diffOmega > 3.0) {
-          eyeOnePattern(eyes_L);
+          eyeOnePattern(eyes_L, sizeof(eyes_L));
         }
         else if (diffOmega > 1.5) {
-          eyeOnePattern(eyes_CL);
+          eyeOnePattern(eyes_CL, sizeof(eyes_CL));
         }
         else if (diffOmega > -1.5) {
-          eyeOnePattern(eyes_C);
+          eyeOnePattern(eyes_C, sizeof(eyes_C));
         }
         else if (diffOmega > -3.0) {
-          eyeOnePattern(eyes_CR);
+          eyeOnePattern(eyes_CR, sizeof(eyes_CR));
         }
         else if (diffOmega > -4.0) {
-          eyeOnePattern(eyes_R);
+          eyeOnePattern(eyes_R, sizeof(eyes_R));
         }
         else {
-          eyeOnePattern(eyes_RR);
+          eyeOnePattern(eyes_RR, sizeof(eyes_RR));
         }
 
-        if ((rand() % 20000) == 0) {
-          eyeBlink();
+        if ((rand() % 300) == 0) {
+          eyeOnePattern(eyes_close, sizeof(eyes_close));
+          sleep_ms(100);
+          eyeOnePattern(eyes_sleep, sizeof(eyes_sleep));
+          sleep_ms(100);
+          eyeOnePattern(eyes_open, sizeof(eyes_open));
+          sleep_ms(100);
         }
         break;
       case 3:
-        eyeClose();
+        eyeOnePattern(eyes_close, sizeof(eyes_close));
+        sleep_ms(100);
         break;
     }
-
-    pico7219_switch_off_all (pico7219, FALSE);
   }
-  
 }
 
 int main()
@@ -484,12 +447,41 @@ int main()
   pwm_set_mask_enabled(0b00001001);
 
   /*
-   * EyePatternライブラリ初期化
+   * EyePattern関連初期化
    */
-  pico7219 = pico7219_create (SPI_CHAN, 1500 * 1000,
-    MOSI, SCK, CS, CHAIN_LEN, FALSE);
-  pico7219_set_intensity(pico7219, 1);       /* 輝度設定 */
-  pico7219_switch_off_all (pico7219, FALSE); /* LED前消灯 */
+  gpio_init(CS);
+  gpio_set_dir(CS, GPIO_OUT);
+  gpio_put(CS, 1);
+
+  spi_init(SPI_PORT, 1000 * 1000);
+
+  spi_set_format(SPI_PORT,
+    8,
+    1,
+    1,
+    SPI_MSB_FIRST);
+
+  gpio_set_function(SCK, GPIO_FUNC_SPI);
+  gpio_set_function(MOSI, GPIO_FUNC_SPI);
+  
+  sleep_ms(10);
+
+  max7219_write(REG_DIGIT0, 0x00);
+  max7219_write(REG_DIGIT1, 0x00);
+  max7219_write(REG_DIGIT2, 0x00);
+  max7219_write(REG_DIGIT3, 0x00);
+  max7219_write(REG_DIGIT4, 0x00);
+  max7219_write(REG_DIGIT5, 0x00);
+  max7219_write(REG_DIGIT6, 0x00);
+  max7219_write(REG_DIGIT7, 0x00);
+
+  max7219_write(REG_DECODE_MODE,  0x00);
+  max7219_write(REG_INTENSITY,    0x04);
+  max7219_write(REG_SCAN_LIMIT,   0x07);
+  max7219_write(REG_SHUTDOWN,     0x01);
+  max7219_write(REG_DISPLAY_TEST, 0x00);
+
+  sleep_ms(10);
   multicore_launch_core1(eyePattern);        /* EyePatternはcore1で走らせる */
 
   rcl_timer_t timer1000;        /* Create timer object */
