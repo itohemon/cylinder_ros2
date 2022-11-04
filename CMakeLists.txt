@@ -36,6 +36,9 @@ find_package(OpenCV REQUIRED COMPONENTS core highgui)
 add_executable(cylinder_status
   src/cylinder_status.cpp
   )
+target_include_directories(cylinder_status PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(cylinder_status
   rclcpp
   rclcpp_action
