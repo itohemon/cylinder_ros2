@@ -15,6 +15,9 @@ def generate_launch_description():
     default_model_path = os.path.join(pkg_share, 'urdf/cylinder_gazebo.xacro')
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/cylinder.rviz')
 
+    x_pose  = LaunchConfiguration('x_pose',  default='1.0')
+    y_pose  = LaunchConfiguration('y_pose',  default='-2.0')
+    th_pose = LaunchConfiguration('th_pose', default='1.57079632679')
     world = os.path.join(
         get_package_share_directory('turtlebot3_gazebo'),
         'worlds',
@@ -56,7 +59,12 @@ def generate_launch_description():
         executable='spawn_entity.py',
         arguments=[
             '-entity', 'cylinder',
-            '-topic', 'robot_description'],
+            '-topic', 'robot_description',
+            '-x', x_pose,
+            '-y', y_pose,
+            '-z', '0.01',
+            '-Y', th_pose
+        ],
         output='screen'
     )
     robot_localization_node = launch_ros.actions.Node(
