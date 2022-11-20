@@ -106,6 +106,8 @@ bool led;
 
 int state;                      /* 内部状態 */
 
+int timer100_count;
+
 void setMotorA(float);
 void setMotorB(float);
 
@@ -126,6 +128,14 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   int targetA = target_valA;
   int targetB = target_valB;
   float vel;
+
+  /* 1秒間cmd_velが来てなかったらロボットを停止させる */
+  if (timer100_count > 10) {
+    targetA = 0;
+    targetB = 0;
+    timer100_count = 10;
+  }
+  timer100_count++;
 
   errorA[0] = errorA[1];
   errorB[0] = errorB[1];
@@ -189,6 +199,8 @@ void cmd_vel_Cb(const void * msgin)
 
   target_valA = target_wL * PPR / PI / 2.0; /* Left */
   target_valB = target_wR * PPR / PI / 2.0; /* Right */
+
+  timer100_count = 0;
 }
 
 void setMotorA(float value)
@@ -376,6 +388,8 @@ int main()
   omegaB = 0;
   state = 0;
   odometer = 0.0;
+
+  timer100_count = 0;
 
   rmw_uros_set_custom_transport(
     true,
