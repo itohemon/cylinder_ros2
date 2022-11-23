@@ -495,7 +495,7 @@ int main()
   max7219_write(REG_DIGIT7, 0x00);
 
   max7219_write(REG_DECODE_MODE,  0x00);
-  max7219_write(REG_INTENSITY,    0x04);
+  max7219_write(REG_INTENSITY,    0x00);
   max7219_write(REG_SCAN_LIMIT,   0x07);
   max7219_write(REG_SHUTDOWN,     0x01);
   max7219_write(REG_DISPLAY_TEST, 0x00);
