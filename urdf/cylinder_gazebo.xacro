@@ -1,15 +1,12 @@
 <?xml version="1.0"?>
 <robot name="cylinder" xmlns:xacro="http://ros.org/wiki/xacro">
 
- <link name="base_link" />
-
- <joint name="base_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="body_link"/>
-  <origin xyz="0 0 0.052069" rpy="0 0 0"/>
- </joint>
-
- <link name="body_link">
+ <!-- Define robot constants -->
+ <xacro:property name="base_radius" value="0.12"/>
+ <xacro:property name="base_length" value="0.093"/>
+ 
+ <!-- Robot Base -->
+ <link name="base_link">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -17,7 +14,7 @@
   </inertial>
   <visual>
    <geometry>
-    <cylinder length="0.093" radius="0.12"/>
+    <cylinder length="${base_length}" radius="${base_radius}"/>
    </geometry>
    <material name="blue">
     <color rgba="0.0 0.0 1.0 1.0"/>
@@ -25,7 +22,7 @@
   </visual>
   <collision>
    <geometry>
-    <cylinder length="0.093" radius="0.12"/>
+    <cylinder length="${base_length}" radius="${base_radius}"/>
    </geometry>
   </collision>
  </link>
@@ -33,10 +30,18 @@
   <material>Gazebo/Gray</material>
  </gazebo>
 
+ <link name="base_footprint" />
+
+ <joint name="base_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="base_footprint"/>
+  <origin xyz="0 0 -0.052069" rpy="0 0 0"/>
+ </joint>
+
  <joint name="lidar_joint" type="fixed">
   <parent link="base_link"/>
   <child link="base_scan"/>
-  <origin xyz="0 0 0.105969" rpy="0 0 0"/>
+  <origin xyz="0 0 0.0539" rpy="0 0 0"/>
  </joint>
 
  <link name="base_scan">
@@ -98,16 +103,16 @@
   <material>Gazebo/Black</material>
  </gazebo>
 
- <joint name="leftwheel_joint" type="continuous">
-  <origin xyz="0 0.09832 0.0355" rpy="${radians(-90)} 0 0"/>
+ <joint name="wheel_left_joint" type="continuous">
+  <origin xyz="0 0.09832 -0.016569" rpy="${radians(-90)} 0 0"/>
   <parent link="base_link"/>
-  <child link="leftwheel_link"/>
+  <child link="wheel_left"/>
   <axis xyz="0 0 1"/>
   <limit velocity="12" effort="0.4" />
   <dynamics damping="0.1" />
  </joint>
 
- <link name="leftwheel_link">
+ <link name="wheel_left">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -124,7 +129,7 @@
    </geometry>
   </collision>
  </link>
- <gazebo reference="leftwheel_link">
+ <gazebo reference="wheel_left">
   <material>Gazebo/Red</material>
   <mu1 value="2.5" />
   <mu2 value="2.5" />
@@ -132,16 +137,16 @@
   <kd value="10" />
  </gazebo>
 
- <joint name="rightwheel_joint" type="continuous">
-  <origin xyz="0 -0.09832 0.0355" rpy="${radians(-90)} 0 0"/>
+ <joint name="wheel_right_joint" type="continuous">
+  <origin xyz="0 -0.09832 -0.016569" rpy="${radians(-90)} 0 0"/>
   <parent link="base_link"/>
-  <child link="rightwheel_link"/>
+  <child link="wheel_right"/>
   <axis xyz="0 0 1"/>
   <limit velocity="12" effort="0.4" />
   <dynamics damping="0.1" />
  </joint>
 
- <link name="rightwheel_link">
+ <link name="wheel_right">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -158,7 +163,7 @@
    </geometry>
   </collision>
  </link>
- <gazebo reference="rightwheel_link">
+ <gazebo reference="wheel_right">
   <material>Gazebo/Red</material>
   <mu1 value="2.5" />
   <mu2 value="2.5" />
@@ -167,7 +172,7 @@
  </gazebo>
 
  <joint name="front_ball_joint" type="fixed">
-  <origin xyz="0.10 0 0.011" rpy="0 0 0"/>
+  <origin xyz="0.10 0 -0.042069" rpy="0 0 0"/>
   <parent link="base_link"/>
   <child link="front_ball_link"/>
  </joint>
@@ -193,7 +198,7 @@
  </gazebo>
  
  <joint name="back_ball_joint" type="fixed">
-  <origin xyz="-0.10 0 0.01" rpy="0 0 0"/>
+  <origin xyz="-0.10 0 -0.042069" rpy="0 0 0"/>
   <parent link="base_link"/>
   <child link="back_ball_link"/>
  </joint>
@@ -226,8 +231,8 @@
    <legacyMode>false</legacyMode>
    
    <!-- wheels -->
-   <left_joint>leftwheel_joint</left_joint>
-   <right_joint>rightwheel_joint</right_joint>
+   <left_joint>wheel_left_joint</left_joint>
+   <right_joint>wheel_right_joint</right_joint>
 
    <!-- kinematics -->
    <wheel_separation>0.197</wheel_separation>
