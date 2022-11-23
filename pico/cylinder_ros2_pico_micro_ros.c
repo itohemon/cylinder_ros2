@@ -5,6 +5,7 @@
 #include "pico/binary_info.h"
 #include "pico_uart_transports.h"
 #include "pico/multicore.h"
+#include "pico/mutex.h"
 
 #include "hardware/pwm.h"
 
@@ -106,6 +107,7 @@ bool led;
 
 int state;                      /* 内部状態 */
 
+static mutex_t timer100_mutex;
 int timer100_count;
 
 void setMotorA(float);
@@ -129,13 +131,16 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   int targetB = target_valB;
   float vel;
 
+
   /* 1秒間cmd_velが来てなかったらロボットを停止させる */
+  mutex_enter_blocking(&timer100_mutex);
   if (timer100_count > 10) {
     targetA = 0;
     targetB = 0;
-    timer100_count = 10;
+    timer100_count = 11;
   }
   timer100_count++;
+  mutex_exit(&timer100_mutex);
 
   errorA[0] = errorA[1];
   errorB[0] = errorB[1];
@@ -200,7 +205,9 @@ void cmd_vel_Cb(const void * msgin)
   target_valA = target_wL * PPR / PI / 2.0; /* Left */
   target_valB = target_wR * PPR / PI / 2.0; /* Right */
 
+  mutex_enter_blocking(&timer100_mutex);
   timer100_count = 0;
+  mutex_exit(&timer100_mutex);
 }
 
 void setMotorA(float value)
@@ -389,8 +396,6 @@ int main()
   state = 0;
   odometer = 0.0;
 
-  timer100_count = 0;
-
   rmw_uros_set_custom_transport(
     true,
     NULL,
@@ -511,6 +516,11 @@ int main()
   // Wait for agent successful ping for 255 seconds.
   const int timeout_ms = 1000; 
   const uint8_t attempts = 255;
+
+  mutex_init(&timer100_mutex);
+  mutex_enter_blocking(&timer100_mutex);
+  timer100_count = 0;
+  mutex_exit(&timer100_mutex);
 
   while (true) {
 
