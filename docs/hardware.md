@@ -14,11 +14,12 @@
 - 自作電源スイッチ基板
   - [4.5～40V DC 16A　Big MOSFETスライドスイッチ](https://www.robotshop.com/jp/ja/45-40v-dc-16a-big-mosfet-slide-switch.html)
   - タクトスイッチ
-  - [電流計](https://www.amazon.co.jp/VKLSVAN-%E5%B0%8F%E5%9E%8B%E9%9B%BB%E5%9C%A7%E8%A8%88-DC0-100V-0-36%E3%82%A4%E3%83%B3%E3%83%81-%E8%B5%A4%E3%83%87%E3%82%B8%E3%82%BF%E3%83%AB%EF%BC%882%E5%80%8B%E3%82%BB%E3%83%83%E3%83%88%EF%BC%89/dp/B086GDRMMM/ref=d_pd_sbs_sccl_3_2/358-4118870-0865555)
+  - [電圧計](https://www.robotshop.com/jp/ja/028-led-digital-dc-voltmeter-spa.html)
 
 ## Raspberry Pi 4B
 ### GPIO
 |ピン番号|ピン名|接続先部品|接続先ピン名|
+|---|---|---|---|
 |1|3.3V Power|BNO055|VCC|
 |2|5V Power|LD06|P5V|
 |4|5V Power|ファン|+|
@@ -33,6 +34,7 @@
 
 ## Raspberry Pi Pico
 |ピン番号|ピン名|接続先部品|接続先ピン名|
+|---|---|---|---|
 |1|GP0|TB6612FNGv2|PWMA|
 |2|GP1|TB6612FNGv2|AI2|
 |3|GND|-|GND|
@@ -60,6 +62,7 @@
 
 ## TB6612FNG
 |ピン番号|ピン名|接続先部品|接続先ピン名|
+|---|---|---|---|
 |1|GND|-|GND|
 |2|VCC|-|3.3V|
 |3|AO1|モータA|1|
