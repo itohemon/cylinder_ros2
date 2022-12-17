@@ -1,14 +1,12 @@
+<?xml version="1.0"?>
 <robot name="cylinder" xmlns:xacro="http://ros.org/wiki/xacro">
+
+ <!-- Define robot constants -->
+ <xacro:property name="base_radius" value="0.12"/>
+ <xacro:property name="base_length" value="0.093"/>
  
- <link name="base_link" />
-
- <joint name="base_joint" type="fixed">
-  <parent link="base_link"/>
-  <child link="body_link"/>
-  <origin xyz="0 0 0.052069" rpy="0 0 0"/>
- </joint>
-
- <link name="body_link">
+ <!-- Robot Base -->
+ <link name="base_link">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -16,7 +14,7 @@
   </inertial>
   <visual>
    <geometry>
-    <cylinder length="0.093" radius="0.12"/>
+    <cylinder length="${base_length}" radius="${base_radius}"/>
    </geometry>
    <material name="blue">
     <color rgba="0.0 0.0 1.0 1.0"/>
@@ -24,7 +22,7 @@
   </visual>
   <collision>
    <geometry>
-    <cylinder length="0.093" radius="0.12"/>
+    <cylinder length="${base_length}" radius="${base_radius}"/>
    </geometry>
   </collision>
  </link>
@@ -32,12 +30,21 @@
   <material>Gazebo/Gray</material>
  </gazebo>
 
+ <link name="base_footprint" />
+
+ <joint name="base_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="base_footprint"/>
+  <origin xyz="0 0 -0.052069" rpy="0 0 0"/>
+ </joint>
+
  <joint name="lidar_joint" type="fixed">
   <parent link="base_link"/>
-  <child link="scan"/>
-  <origin xyz="0 0 0.105969" rpy="0 0 0"/>
+  <child link="base_scan"/>
+  <origin xyz="0 0 0.0539" rpy="0 0 0"/>
  </joint>
- <link name="scan">
+
+ <link name="base_scan">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -54,32 +61,58 @@
    </geometry>
   </collision>
  </link>
- <gazebo reference="lidar_joint">
-  <material>Gazebo/Red</material>
+
+ <gazebo reference="base_scan">
+  <sensor name="ld06" type="ray">
+   <always_on>true</always_on>
+   <visualize>true</visualize>
+   <pose>0 0 0.105969 0 0 0</pose>
+   <update_rate>10</update_rate>
+   <ray>
+    <scan>
+     <horizontal>
+      <samples>360</samples>
+      <resolution>1.000000</resolution>
+      <min_angle>0.000000</min_angle>
+      <max_angle>6.280000</max_angle>
+     </horizontal>
+    </scan>
+    <range>
+     <min>0.120000</min>
+     <max>12.0</max>
+     <resolution>0.015000</resolution>
+    </range>
+    <noise>
+     <type>gaussian</type>
+     <mean>0.0</mean>
+     <stddev>0.01</stddev>
+    </noise>
+   </ray>
+   <plugin name="cylinder_ros2_laserscan" filename="libgazebo_ros_ray_sensor.so">
+    <ros>
+     <remapping>~/out:=scan</remapping>
+    </ros>
+    <output_type>sensor_msgs/LaserScan</output_type>
+    <frame_name>base_scan</frame_name>
+   </plugin>
+  </sensor>
+ </gazebo>
+ <gazebo reference="base_scan">
+  <mu1>0.01</mu1>
+  <mu2>0.01</mu2>
+  <material>Gazebo/Black</material>
  </gazebo>
 
- <joint name="leftwheel_joint" type="continuous">
-  <origin xyz="0 0.09832 0.0355" rpy="${radians(-90)} 0 0"/>
+ <joint name="wheel_left_joint" type="continuous">
+  <origin xyz="0 0.09832 -0.016569" rpy="${radians(-90)} 0 0"/>
   <parent link="base_link"/>
-  <child link="leftwheel_link"/>
+  <child link="wheel_left"/>
   <axis xyz="0 0 1"/>
   <limit velocity="12" effort="0.4" />
   <dynamics damping="0.1" />
  </joint>
 
- <transmission name="leftwheel_trans" type="SimpleTransmission">
-  <type>transmission_interface/SimpleTransmission</type>
-  <actuator name="leftwheel_motor">
-   <mechanicalReduction>1</mechanicalReduction>
-  </actuator>
-  <joint name="leftwheel_joint">
-   <hardwareInterface>
-    hardware_interface/VelocityJointInterface
-   </hardwareInterface>
-  </joint>
- </transmission>
-
- <link name="leftwheel_link">
+ <link name="wheel_left">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -96,7 +129,7 @@
    </geometry>
   </collision>
  </link>
- <gazebo reference="leftwheel_link">
+ <gazebo reference="wheel_left">
   <material>Gazebo/Red</material>
   <mu1 value="2.5" />
   <mu2 value="2.5" />
@@ -104,28 +137,16 @@
   <kd value="10" />
  </gazebo>
 
- <joint name="rightwheel_joint" type="continuous">
-  <origin xyz="0 -0.09832 0.0355" rpy="${radians(-90)} 0 0"/>
+ <joint name="wheel_right_joint" type="continuous">
+  <origin xyz="0 -0.09832 -0.016569" rpy="${radians(-90)} 0 0"/>
   <parent link="base_link"/>
-  <child link="rightwheel_link"/>
+  <child link="wheel_right"/>
   <axis xyz="0 0 1"/>
   <limit velocity="12" effort="0.4" />
   <dynamics damping="0.1" />
  </joint>
 
- <transmission name="rightwheel_trans" type="SimpleTransmission">
-  <type>transmission_interface/SimpleTransmission</type>
-  <actuator name="rightwheel_motor">
-   <mechanicalReduction>1</mechanicalReduction>
-  </actuator>
-  <joint name="rightwheel_joint">
-   <hardwareInterface>
-    hardware_interface/VelocityJointInterface
-   </hardwareInterface>
-  </joint>
- </transmission>
-
- <link name="rightwheel_link">
+ <link name="wheel_right">
   <inertial>
    <origin xyz="0 0 0" rpy="0 0 0"/>
    <mass value="1.0"/>
@@ -142,7 +163,7 @@
    </geometry>
   </collision>
  </link>
- <gazebo reference="rightwheel_link">
+ <gazebo reference="wheel_right">
   <material>Gazebo/Red</material>
   <mu1 value="2.5" />
   <mu2 value="2.5" />
@@ -151,7 +172,7 @@
  </gazebo>
 
  <joint name="front_ball_joint" type="fixed">
-  <origin xyz="0.10 0 0.01" rpy="0 0 0"/>
+  <origin xyz="0.10 0 -0.042069" rpy="0 0 0"/>
   <parent link="base_link"/>
   <child link="front_ball_link"/>
  </joint>
@@ -172,12 +193,12 @@
  </link>
  <gazebo reference="front_ball_link">
   <material>Gazebo/Red</material>
-  <mu1 value="0.5" />
-  <mu2 value="0.5" />
+  <mu1 value="0.01" />
+  <mu2 value="0.01" />
  </gazebo>
-  
+ 
  <joint name="back_ball_joint" type="fixed">
-  <origin xyz="-0.10 0 0.01" rpy="0 0 0"/>
+  <origin xyz="-0.10 0 -0.042069" rpy="0 0 0"/>
   <parent link="base_link"/>
   <child link="back_ball_link"/>
  </joint>
@@ -198,15 +219,50 @@
  </link>
  <gazebo reference="back_ball_link">
   <material>Gazebo/Red</material>
-  <mu1 value="0.5" />
-  <mu2 value="0.5" />
+  <mu1 value="0.01" />
+  <mu2 value="0.01" />
  </gazebo>
 
  <gazebo>
-  <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-   <robotNamespace>/cylinder</robotNamespace>
-   <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-   <legacyModeNS>true</legacyModeNS>
+  <plugin name="cylinder_ros2_diff_drive" filename="libgazebo_ros_diff_drive.so">
+   <update_rate>50</update_rate>
+   <alwaysOn>true</alwaysOn>
+
+   <legacyMode>false</legacyMode>
+   
+   <!-- wheels -->
+   <left_joint>wheel_left_joint</left_joint>
+   <right_joint>wheel_right_joint</right_joint>
+
+   <!-- kinematics -->
+   <wheel_separation>0.197</wheel_separation>
+   <wheel_diameter>0.071</wheel_diameter>
+
+   <!-- limits -->
+   <wheelTorque>500</wheelTorque>
+   <wheelAcceleration>0</wheelAcceleration>
+
+   <!-- Receive velocity commands on this ROS topic -->
+   <command_topic>cmd_vel</command_topic>
+
+   <!-- output -->
+   <!-- When false, publish no wheel odometry data to a ROS topic -->
+   <publish_odom>true</publish_odom>
+
+   <!-- When true, publish coordinate transform from odom to base_footprint -->
+   <!-- I usually use the robot_localization package to publish this transform -->
+   <publish_odom_tf>true</publish_odom_tf>
+   
+   <!-- When true, publish coordinate transform from base_link to the wheels -->
+   <!-- The robot_state_publisher package is often used to publish this transform -->
+   <publish_wheel_tf>true</publish_wheel_tf>
+   <odometry_topic>odom</odometry_topic>
+   <odometry_frame>odom</odometry_frame>
+
+   <robot_base_frame>base_link</robot_base_frame>
+   
+   <publishWheelJointState>true</publishWheelJointState>
+   
   </plugin>
  </gazebo>
  

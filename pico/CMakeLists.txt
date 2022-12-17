@@ -6,16 +6,13 @@ project(cylinder_ros2_pico_micro_ros C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-file (GLOB pico7219_src CONFIGURE_DEPENDS "pico7219/src/*.c")
-
 pico_sdk_init()
 
 link_directories($ENV{HOME}/pico/micro_ros_raspberrypi_pico_sdk/libmicroros)
 add_executable(cylinder_ros2_pico_micro_ros
     cylinder_ros2_pico_micro_ros.c
+    eyes.c
     pico_uart_transport.c
-    pattern.c
-    ${pico7219_src}
 )
 target_link_libraries(cylinder_ros2_pico_micro_ros
     pico_stdlib
@@ -27,7 +24,6 @@ target_link_libraries(cylinder_ros2_pico_micro_ros
 
 target_include_directories(cylinder_ros2_pico_micro_ros PUBLIC
     $ENV{HOME}/pico/micro_ros_raspberrypi_pico_sdk/libmicroros/include
-    pico7219/include
 )
 
 SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")

@@ -1,10 +1,10 @@
 #include <stdio.h>
-#include <math.h>
 #include <time.h>
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "pico_uart_transports.h"
 #include "pico/multicore.h"
+#include "pico/mutex.h"
 
 #include "hardware/pwm.h"
 
@@ -18,7 +18,7 @@
 #include <geometry_msgs/msg/twist.h>
 #include <rmw_microros/rmw_microros.h>
 
-#include <pico7219/pico7219.h> // The library's header
+#include "common.h"
 
 const uint PWMA  = 0;           /* L側車輪 */
 const uint AI2   = 1;
@@ -33,10 +33,6 @@ const uint ACHB = 8;
 const uint BCHA = 11;           /* R側エンコーダ割込みピン */
 const uint BCHB = 10;
 
-const uint MOSI = 19;           /* Eye LED SPI */
-const uint SCK  = 18;
-const uint CS   = 17;
-
 const uint LED_PIN = 25;
 
 const double WHEEL_RAD = 0.035;   /* ホイール半径[m] */
@@ -47,30 +43,10 @@ const int PPR = 840; /* 7[パルス/回転] * 2[Up/Down] * 60[ギア比] = 840 *
 
 const int DUTY_CLK = 2500;      /* PWM周波数 */
 
-#define PI 3.14159265358979323846
-
 /* PID制御のパラメータ値 */
 #define KP  -0.80
 #define KI  -5.33
 #define KD   0.08
-
-/* EyePattern */
-#define CHAIN_LEN 2             /* 8x8 LED個数 */
-#define SPI_CHAN  0             /* PicoのSPIのチャネル番号 */
-
-extern uint8_t eyes_sleep[];
-extern uint8_t eyes_open[];
-extern uint8_t eyes_close[];
-extern uint8_t eyes_RR[];
-extern uint8_t eyes_R[];
-extern uint8_t eyes_CR[];
-extern uint8_t eyes_C[];
-extern uint8_t eyes_CL[];
-extern uint8_t eyes_L[];
-extern uint8_t eyes_LL[];
-
-typedef struct Pico7219 Pico7219;
-Pico7219 *pico7219;
 
 /*
  *  A：左車輪
@@ -82,7 +58,6 @@ float errorA[2];            /* 0:現在のエラー値、1:一つ前のエラー
 float integralA;
 uint sliceNumA;
 uint chanA;
-float omegaA;
 
 /*
  * B：右車輪
@@ -94,13 +69,12 @@ float errorB[2];            /* 0:現在のエラー値、1:一つ前のエラー
 float integralB;
 uint sliceNumB;
 uint chanB;
-float omegaB;
 
 /*
  * 車輪の状態をpublishするための変数
- * 0:左角速度[rad/s]、 1:左角度[rad]、 2:右角速度[rad/s]、 3:右角度[rad]
+ * 0:左角速度[rad/s]、 1:左角度[rad]、 2:左回転数[rpm]、 3:右角速度[rad/s]、 4:右角度[rad]、 5:右回転数[rpm]
  */
-static float_t wheelState[4];
+static float wheelState[6];
 std_msgs__msg__Float32MultiArray present_wheelState;
 
 /* Publisher object */
@@ -117,19 +91,16 @@ geometry_msgs__msg__Twist cmd_vel;
 
 bool led;
 
-int state;                      /* 内部状態 */
+static mutex_t timer100_mutex;
+int timer100_count;
 
 void setMotorA(float);
 void setMotorB(float);
 
-void timer1000_callback(rcl_timer_t *timer, int64_t last_call_time)
-{
-  led = !led;
-  gpio_put(LED_PIN, led);
-}
-
 void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
 {
+  static int n = 0;
+
   float valueA;
   float valueB;
   int tcountA = total_countA;
@@ -139,6 +110,23 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   int targetA = target_valA;
   int targetB = target_valB;
   float vel;
+
+  n++;
+  if ((n % 10) == 0) {
+    led = !led;
+    gpio_put(LED_PIN, led);
+    n = 0;
+  }
+
+  /* 1秒間cmd_velが来てなかったらロボットを停止させる */
+  mutex_enter_blocking(&timer100_mutex);
+  if (timer100_count > 10) {
+    targetA = 0;
+    targetB = 0;
+    timer100_count = 11;
+  }
+  timer100_count++;
+  mutex_exit(&timer100_mutex);
 
   errorA[0] = errorA[1];
   errorB[0] = errorB[1];
@@ -162,13 +150,15 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   //valueB = targetB * DUTY_CLK / PPR;
 
   /* publish message */
-  omegaA = feedback_valA * 2.0 * PI * INTR_HZ / PPR;
-  omegaB = feedback_valB * 2.0 * PI * INTR_HZ / PPR;
+  omegaA = feedback_valA * 2.0 * M_PI * INTR_HZ / PPR;
+  omegaB = feedback_valB * 2.0 * M_PI * INTR_HZ / PPR;
   present_wheelState.data.data[0] = omegaA;
-  present_wheelState.data.data[1] = tcountA * 2.0 * PI / PPR;
-  present_wheelState.data.data[2] = omegaB;
-  present_wheelState.data.data[3] = tcountB * 2.0 * PI / PPR;
-  present_wheelState.data.size = 4;
+  present_wheelState.data.data[1] = tcountA * 2.0 * M_PI / PPR;
+  present_wheelState.data.data[2] = feedback_valA * INTR_HZ * 60.0 / PPR;
+  present_wheelState.data.data[3] = omegaB;
+  present_wheelState.data.data[4] = tcountB * 2.0 * M_PI / PPR;
+  present_wheelState.data.data[5] = feedback_valB * INTR_HZ * 60.0 / PPR;
+  present_wheelState.data.size = 6;
 
   vel = WHEEL_RAD * (omegaA + omegaB) / 2.0;
   float abs_vel = vel;
@@ -200,8 +190,12 @@ void cmd_vel_Cb(const void * msgin)
   target_wR = cmdV / WHEEL_RAD + WHEEL_SEP * cmdW / 2.0 / WHEEL_RAD;
   target_wL = cmdV / WHEEL_RAD - WHEEL_SEP * cmdW / 2.0 / WHEEL_RAD;
 
-  target_valA = target_wL * PPR / PI / 2.0; /* Left */
-  target_valB = target_wR * PPR / PI / 2.0; /* Right */
+  target_valA = target_wL * PPR / M_PI / 2.0; /* Left */
+  target_valB = target_wR * PPR / M_PI / 2.0; /* Right */
+
+  mutex_enter_blocking(&timer100_mutex);
+  timer100_count = 0;
+  mutex_exit(&timer100_mutex);
 }
 
 void setMotorA(float value)
@@ -277,127 +271,6 @@ void readEncoder(uint gpio, uint32_t events)
     }
     return;
   }
-}
-
-void eyeOpen()
-{
-  for (int pattern = 0; pattern < 4; pattern++) {
-    for (int i = 0; i < 8; i++) // row
-    {
-      uint8_t v = eyes_open[i + 8 * pattern];
-      for (int j = 0; j < 8; j++) // column
-      {
-        int sel = 1 << j;
-        if (sel & v) {
-          pico7219_switch_on (pico7219, i, j, FALSE);
-          pico7219_switch_on (pico7219, i, j + 8, FALSE);
-        }
-      }
-    }
-    
-    pico7219_flush (pico7219);
-    sleep_ms(100);
-    pico7219_switch_off_all (pico7219, FALSE);
-  }
-}
-
-void eyeClose()
-{
-  for (int pattern = 0; pattern < 4; pattern++) {
-    for (int i = 0; i < 8; i++) // row
-    {
-      uint8_t v = eyes_close[i + 8 * pattern];
-      for (int j = 0; j < 8; j++) // column
-      {
-        int sel = 1 << j;
-        if (sel & v) {
-          pico7219_switch_on (pico7219, i, j, FALSE);
-          pico7219_switch_on (pico7219, i, j + 8, FALSE);
-        }
-      }
-    }
-    
-    pico7219_flush (pico7219);
-    sleep_ms(100);
-    pico7219_switch_off_all (pico7219, FALSE);
-  }
-}
-
-void eyeBlink()
-{
-  eyeOpen();
-  eyeClose();
-}
-
-void eyeOnePattern(uint8_t *pattern)
-{
-  for (int i = 0; i < 8; i++) // row
-  {
-    uint8_t v = pattern[i];
-    for (int j = 0; j < 8; j++) // column
-    {
-      int sel = 1 << j;
-      if (sel & v) {
-        pico7219_switch_on (pico7219, i, j, FALSE);
-        pico7219_switch_on (pico7219, i, j + 8, FALSE);
-      }
-    }
-  }
-  pico7219_flush (pico7219);
-}
-
-void eyePattern()
-{
-  float diffOmega;
-
-  while (1) // Forever
-  {
-    switch (state)
-    {
-      case 0:
-        eyeOnePattern(eyes_sleep);
-        break;
-      case 1:
-        eyeOpen();
-        state = 2;
-        break;
-      case 2:
-        diffOmega = omegaA - omegaB;
-
-        if (diffOmega > 4.0) {
-          eyeOnePattern(eyes_LL);
-        }
-        else if (diffOmega > 3.0) {
-          eyeOnePattern(eyes_L);
-        }
-        else if (diffOmega > 1.5) {
-          eyeOnePattern(eyes_CL);
-        }
-        else if (diffOmega > -1.5) {
-          eyeOnePattern(eyes_C);
-        }
-        else if (diffOmega > -3.0) {
-          eyeOnePattern(eyes_CR);
-        }
-        else if (diffOmega > -4.0) {
-          eyeOnePattern(eyes_R);
-        }
-        else {
-          eyeOnePattern(eyes_RR);
-        }
-
-        if ((rand() % 20000) == 0) {
-          eyeBlink();
-        }
-        break;
-      case 3:
-        eyeClose();
-        break;
-    }
-
-    pico7219_switch_off_all (pico7219, FALSE);
-  }
-  
 }
 
 int main()
@@ -483,16 +356,9 @@ int main()
   /* PWM有効化 */
   pwm_set_mask_enabled(0b00001001);
 
-  /*
-   * EyePatternライブラリ初期化
-   */
-  pico7219 = pico7219_create (SPI_CHAN, 1500 * 1000,
-    MOSI, SCK, CS, CHAIN_LEN, FALSE);
-  pico7219_set_intensity(pico7219, 1);       /* 輝度設定 */
-  pico7219_switch_off_all (pico7219, FALSE); /* LED前消灯 */
+  eyes_init();
   multicore_launch_core1(eyePattern);        /* EyePatternはcore1で走らせる */
 
-  rcl_timer_t timer1000;        /* Create timer object */
   rcl_timer_t timer100;         /* Create timer object */
   rcl_node_t node;
   rcl_allocator_t allocator;
@@ -505,6 +371,11 @@ int main()
   // Wait for agent successful ping for 255 seconds.
   const int timeout_ms = 1000; 
   const uint8_t attempts = 255;
+
+  mutex_init(&timer100_mutex);
+  mutex_enter_blocking(&timer100_mutex);
+  timer100_count = 0;
+  mutex_exit(&timer100_mutex);
 
   while (true) {
 
@@ -532,7 +403,7 @@ int main()
       "cmd_vel"
       );
 
-    present_wheelState.data.capacity = 4;
+    present_wheelState.data.capacity = 6;
     present_wheelState.data.data = wheelState;
     present_wheelState.data.size = 0;
 
@@ -547,21 +418,16 @@ int main()
       "odometer");
 
     // Initialize timer object
-    rclc_timer_init_default(&timer1000, &support,
-      RCL_MS_TO_NS(1000),         /* Timer period on nanoseconds */
-      timer1000_callback);
-
-    // Initialize timer object
     rclc_timer_init_default(&timer100, &support,
       RCL_MS_TO_NS(1000 / INTR_HZ), /* Timer period on nanoseconds */
       timer100_callback);
 
     // 3つめの引数は通信オブジェクトの数(Timerとsubscriptionの総数)
-    // このプログラムはTimer2つsubscriber1つで通信オブジェクトは3
+    // このプログラムはTimer1つsubscriber1つで通信オブジェクトは2
     executor = rclc_executor_get_zero_initialized_executor();
-    rclc_executor_init(&executor, &support.context, 3, &allocator);
+    rclc_executor_init(&executor, &support.context, 2, &allocator);
+    
     // Add to the executor
-    rclc_executor_add_timer(&executor, &timer1000);
     rclc_executor_add_timer(&executor, &timer100);
     rclc_executor_add_subscription(&executor, &subscriber,
       &cmd_vel, &cmd_vel_Cb, ON_NEW_DATA);
@@ -580,7 +446,6 @@ int main()
     rclc_executor_fini(&executor);
     rcl_publisher_fini(&publisher, &node);
     rcl_publisher_fini(&pub_odometer, &node);
-    rcl_timer_fini(&timer1000);
     rcl_timer_fini(&timer100);
     rcl_subscription_fini(&subscriber, &node);
     rcl_node_fini(&node);

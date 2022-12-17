@@ -22,6 +22,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -35,6 +36,9 @@ find_package(OpenCV REQUIRED COMPONENTS core highgui)
 add_executable(cylinder_status
   src/cylinder_status.cpp
   )
+target_include_directories(cylinder_status PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(cylinder_status
   rclcpp
   rclcpp_action
@@ -81,6 +85,15 @@ ament_target_dependencies(obstacle_avoidance
   sensor_msgs
   )
 
+add_executable(nav2_send_goal
+  src/nav2_send_goal.cpp
+  )
+ament_target_dependencies(nav2_send_goal
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  )
+
 add_library(${PROJECT_NAME} SHARED
   src/cylinder_controller.cpp
   src/cylinder_move.cpp
@@ -109,6 +122,17 @@ ament_target_dependencies(apriltag_detect
   OpenCV
   )
 
+add_executable(waypoint_follower
+  src/waypoint_follower.cpp
+  )
+ament_target_dependencies(waypoint_follower
+  rclcpp
+  rclcpp_action
+  rclcpp_components
+  nav2_msgs
+  geometry_msgs
+  )
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -127,6 +151,8 @@ install(TARGETS
   moving_robot
   obstacle_avoidance
   apriltag_detect
+  waypoint_follower
+  nav2_send_goal
   DESTINATION lib/${PROJECT_NAME}
   )
 
