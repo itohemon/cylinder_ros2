@@ -11,6 +11,7 @@ pico_sdk_init()
 link_directories($ENV{HOME}/pico/micro_ros_raspberrypi_pico_sdk/libmicroros)
 add_executable(cylinder_ros2_pico_micro_ros
     cylinder_ros2_pico_micro_ros.c
+    eyes.c
     pico_uart_transport.c
 )
 target_link_libraries(cylinder_ros2_pico_micro_ros

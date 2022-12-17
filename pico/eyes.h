@@ -1,4 +1,15 @@
 #include <stdint.h>
+#include <math.h>
+#include "pico/stdlib.h"
+
+#define SPI_PORT spi0           /* PicoのSPIのチャネル番号 */
+
+const uint MOSI = 19;           /* Eye LED SPI */
+const uint SCK  = 18;
+const uint CS   = 17;
+
+/* EyePattern */
+const int CHAIN_LEN = 2;        /* 8x8 LED個数 */
 
 const uint8_t REG_DIGIT0       = 0x01;
 const uint8_t REG_DIGIT1       = 0x02;
@@ -220,3 +231,4 @@ const uint8_t eyes_close[32] =
   0b00000000
 
 };
+
