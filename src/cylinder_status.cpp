@@ -74,17 +74,17 @@ void CylinderStatus::wheelStateCb(const std_msgs::msg::Float32MultiArray::Shared
 
   double wL     = msg->data[0]; // 車軸回転角速度
   double jointL = msg->data[1]; // 車輪角度
-  double wR     = msg->data[2]; // 車軸回転角速度
-  double jointR = msg->data[3]; // 車輪角度
+  double wR     = msg->data[3]; // 車軸回転角速度
+  double jointR = msg->data[4]; // 車輪角度
 
-  //  RCLCPP_INFO(this->get_logger(), "Subscribe wL: %lf  wR: %lf", wL, wR);
+  //RCLCPP_INFO(this->get_logger(), "Subscribe wL: %lf  wR: %lf", wL, wR);
 
   // 車軸回転角速度から車体速度と角速度を算出
   double vx = WHEEL_RAD * (wR + wL) / 2;
   double vy = 0.0;
   double vth = WHEEL_RAD * (wR - wL) / WHEEL_SEP;
-
-  last_time = current_time;
+  // RCLCPP_INFO(this->get_logger(), "Subscribe vx: %lf  vth: %lf", vx, vth);
+ 
   double dt = current_time.seconds() - last_time.seconds();
   double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
   double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
@@ -149,6 +149,7 @@ void CylinderStatus::wheelStateCb(const std_msgs::msg::Float32MultiArray::Shared
   if (publish_tf_) {
     odom_tf_broadcaster_->sendTransform(odom_tf);
   }
+  last_time = current_time;
 }
 
 int main(int argc,  char *argv[])
