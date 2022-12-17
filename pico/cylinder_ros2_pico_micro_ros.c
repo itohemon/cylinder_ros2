@@ -72,9 +72,9 @@ uint chanB;
 
 /*
  * 車輪の状態をpublishするための変数
- * 0:左角速度[rad/s]、 1:左角度[rad]、 2:右角速度[rad/s]、 3:右角度[rad]
+ * 0:左角速度[rad/s]、 1:左角度[rad]、 2:左回転数[rpm]、 3:右角速度[rad/s]、 4:右角度[rad]、 5:右回転数[rpm]
  */
-static float wheelState[4];
+static float wheelState[6];
 std_msgs__msg__Float32MultiArray present_wheelState;
 
 /* Publisher object */
@@ -154,9 +154,11 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   omegaB = feedback_valB * 2.0 * M_PI * INTR_HZ / PPR;
   present_wheelState.data.data[0] = omegaA;
   present_wheelState.data.data[1] = tcountA * 2.0 * M_PI / PPR;
-  present_wheelState.data.data[2] = omegaB;
-  present_wheelState.data.data[3] = tcountB * 2.0 * M_PI / PPR;
-  present_wheelState.data.size = 4;
+  present_wheelState.data.data[2] = feedback_valA * INTR_HZ * 60.0 / PPR;
+  present_wheelState.data.data[3] = omegaB;
+  present_wheelState.data.data[4] = tcountB * 2.0 * M_PI / PPR;
+  present_wheelState.data.data[5] = feedback_valB * INTR_HZ * 60.0 / PPR;
+  present_wheelState.data.size = 6;
 
   vel = WHEEL_RAD * (omegaA + omegaB) / 2.0;
   float abs_vel = vel;
@@ -401,7 +403,7 @@ int main()
       "cmd_vel"
       );
 
-    present_wheelState.data.capacity = 4;
+    present_wheelState.data.capacity = 6;
     present_wheelState.data.data = wheelState;
     present_wheelState.data.size = 0;
 
