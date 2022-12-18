@@ -216,8 +216,8 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   present_wheelState.data.data[2] = current_omega; // 車体角速度[rad/s]
   present_wheelState.data.data[3] = omegaA; // 左車軸回転角速度[rad/s]
   present_wheelState.data.data[4] = omegaB; // 右車軸回転角速度[rad/s]
-  present_wheelState.data.data[5] = feedback_valA * INTR_HZ * 60.0 / PPR; // 左車輪角度
-  present_wheelState.data.data[6] = feedback_valB * INTR_HZ * 60.0 / PPR; // 右車輪角度
+  present_wheelState.data.data[5] = 2.0 * M_PI * total_countA / PPR; // 左車輪角度
+  present_wheelState.data.data[6] = 2.0 * M_PI * total_countB / PPR; // 右車輪角度
   present_wheelState.data.size = 7;
 
   float abs_vel = current_vel;
