@@ -220,10 +220,7 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   present_wheelState.data.data[6] = 2.0 * M_PI * total_countB / PPR; // 右車輪角度
   present_wheelState.data.size = 7;
 
-  float abs_vel = current_vel;
-  if (abs_vel < 0)
-    abs_vel *= -1.0;
-  odometer += abs_vel / INTR_HZ;
+  odometer += fabsf(current_vel) / INTR_HZ;
   presentOdometer.data = odometer;
 
   rcl_ret_t ret;
@@ -245,6 +242,28 @@ void cmd_vel_Cb(const void * msgin)
   double cmdV = cmdVelMsg->linear.x;  /* 車体の目標速度[m/s] */
   double cmdW = cmdVelMsg->angular.z; /* 車体の目標角速度[rad/s] */
   double target_wR, target_wL;  /* モータの目標回転角速度[rad/s] */
+
+  /* 加減速制限 */
+  double rampV = 2.0;
+  double rampW = 10.0;
+  double stepV = rampV / INTR_HZ;
+  double stepW = rampW / INTR_HZ;
+  float signV = 1.0;
+  float signW = 1.0;
+  if (cmdV <= current_vel) {
+    signV = -1.0;
+  }
+  if (cmdW <= current_omega) {
+    signW = -1.0;
+  }
+  float errorV = fabsf(cmdV - current_vel);
+  float errorW = fabsf(cmdW - current_omega);
+  if (errorV >= stepV) {
+    cmdV = current_vel + signV * stepV;
+  }
+  if (errorW >= stepW) {
+    cmdW = current_omega + signW * stepW;
+  }
 
   target_wR = cmdV / WHEEL_RAD + WHEEL_SEP * cmdW / 2.0 / WHEEL_RAD;
   target_wL = cmdV / WHEEL_RAD - WHEEL_SEP * cmdW / 2.0 / WHEEL_RAD;
