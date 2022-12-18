@@ -20,20 +20,22 @@
 
 #include "common.h"
 
+/* Pico -> TB6612FNG */
 const uint PWMA  = 0;           /* L側車輪 */
-const uint AI2   = 1;
-const uint AI1   = 2;
+const uint AI2   = 1;           /* AI2が1なら後退 */
+const uint AI1   = 2;           /* AI1が1なら前進 */
 const uint STBYn = 3;           /* モータドライバへのSTANDBY信号 */
-const uint BI1   = 4;           /* R側車輪 */
-const uint BI2   = 5;
-const uint PWMB  = 6;
+const uint PWMB  = 6;           /* R側車輪 */
+const uint BI1   = 4;           /* BI1が1なら後退*/
+const uint BI2   = 5;           /* BI2が1なら前進 */
 
+/* モータ -> Pico */
 const uint ACHA = 9;            /* L側エンコーダ割込みピン */
 const uint ACHB = 8;
 const uint BCHA = 11;           /* R側エンコーダ割込みピン */
 const uint BCHB = 10;
 
-const uint LED_PIN = 25;
+const uint LED_PIN = 25;        /* PicoオンボードLED */
 
 const double WHEEL_RAD = 0.035;   /* ホイール半径[m] */
 const double WHEEL_SEP = 0.186;   /* トレッド[m] */
@@ -43,10 +45,20 @@ const int PPR = 840; /* 7[パルス/回転] * 2[Up/Down] * 60[ギア比] = 840 *
 
 const int DUTY_CLK = 2500;      /* PWM周波数 */
 
+// Wait for agent successful ping for 255 seconds.
+const int timeout_ms = 1000; 
+const uint8_t attempts = 255;
+
 /* PID制御のパラメータ値 */
 #define KP  -0.80
 #define KI  -5.33
 #define KD   0.08
+
+/*
+ * 車体情報
+ */
+float current_vel;              /* 現在の車体速度[m/s] */
+float current_omega;            /* 現在の車体角速度[rad/s] */
 
 /*
  *  A：左車輪
@@ -71,16 +83,16 @@ uint sliceNumB;
 uint chanB;
 
 /*
- * 現在の速度[m/s], 角速度[rad/s]
+ * 車体・車輪の状態をpublishするための変数
+ * 0:車体X方向速度[m/s]
+ * 1:車体Y方向速度[m/s]
+ * 2:車体角速度[m/s]
+ * 3:左車軸角速度[rad/s]
+ * 4:右車軸角速度[rad/s]
+ * 5:左角度[rad]
+ * 6:右角度[rad]
  */
-float current_vel;
-float current_omega;
-
-/*
- * 車輪の状態をpublishするための変数
- * 0:左角速度[rad/s]、 1:左角度[rad]、 2:左回転数[rpm]、 3:右角速度[rad/s]、 4:右角度[rad]、 5:右回転数[rpm]
- */
-static float wheelState[6];
+static float wheelState[7];
 std_msgs__msg__Float32MultiArray present_wheelState;
 rcl_publisher_t pub_wheelstate;
 
@@ -196,16 +208,18 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   /* publish message */
   omegaA = feedback_valA * 2.0 * M_PI * INTR_HZ / PPR;
   omegaB = feedback_valB * 2.0 * M_PI * INTR_HZ / PPR;
-  present_wheelState.data.data[0] = omegaA;
-  present_wheelState.data.data[1] = tcountA * 2.0 * M_PI / PPR;
-  present_wheelState.data.data[2] = feedback_valA * INTR_HZ * 60.0 / PPR;
-  present_wheelState.data.data[3] = omegaB;
-  present_wheelState.data.data[4] = tcountB * 2.0 * M_PI / PPR;
-  present_wheelState.data.data[5] = feedback_valB * INTR_HZ * 60.0 / PPR;
-  present_wheelState.data.size = 6;
-
   current_vel   = WHEEL_RAD * (omegaA + omegaB) / 2.0;
   current_omega = WHEEL_RAD * (omegaB - omegaA) / WHEEL_SEP;
+
+  present_wheelState.data.data[0] = current_vel; // 車体X方向速度[m/s]
+  present_wheelState.data.data[1] = 0.0;         // 車体Y方向速度[m/s]
+  present_wheelState.data.data[2] = current_omega; // 車体角速度[rad/s]
+  present_wheelState.data.data[3] = omegaA; // 左車軸回転角速度[rad/s]
+  present_wheelState.data.data[4] = omegaB; // 右車軸回転角速度[rad/s]
+  present_wheelState.data.data[5] = feedback_valA * INTR_HZ * 60.0 / PPR; // 左車輪角度
+  present_wheelState.data.data[6] = feedback_valB * INTR_HZ * 60.0 / PPR; // 右車輪角度
+  present_wheelState.data.size = 7;
+
   float abs_vel = current_vel;
   if (abs_vel < 0)
     abs_vel *= -1.0;
@@ -274,36 +288,8 @@ void readEncoder(uint gpio, uint32_t events)
   }
 }
 
-int main()
+void motor_control_pin_init()
 {
-  /*
-   * variables initialize
-   */
-  total_countA = 0;
-  total_countB = 0;
-  last_countA = 0;
-  last_countB = 0;
-  omegaA = 0;
-  omegaB = 0;
-  state = 0;
-  odometer = 0.0;
-
-  rmw_uros_set_custom_transport(
-    true,
-    NULL,
-    pico_serial_transport_open,
-    pico_serial_transport_close,
-    pico_serial_transport_write,
-    pico_serial_transport_read
-    );
-
-  /*
-   * Pico搭載LED
-   */
-  gpio_init(LED_PIN);
-  gpio_set_dir(LED_PIN, GPIO_OUT);
-  led = true;
-
   /*
    * モーター関連
    */
@@ -318,7 +304,8 @@ int main()
   gpio_set_irq_enabled_with_callback(ACHA, 0x4u | 0x8u, false, &readEncoder);
   gpio_set_irq_enabled(ACHA, 0x4u | 0x8u, true);
   gpio_set_irq_enabled(BCHA, 0x4u | 0x8u, true);
-    
+
+  /* STBYn確認用LED */
   gpio_init(STBYn);
   gpio_set_dir(STBYn, GPIO_OUT);
   gpio_put(STBYn, 1);
@@ -336,7 +323,6 @@ int main()
   gpio_set_dir(BI1, GPIO_OUT);
   gpio_set_dir(BI2, GPIO_OUT);
   gpio_set_function(PWMB, GPIO_FUNC_PWM);
-
 
   /*
    * PWM出力設定
@@ -356,22 +342,56 @@ int main()
   pwm_set_chan_level(sliceNumB, chanB, 0);
   /* PWM有効化 */
   pwm_set_mask_enabled(0b00001001);
+}
 
-  eyes_init();
-  multicore_launch_core1(eyePattern);        /* EyePatternはcore1で走らせる */
+/*
+ * Pico搭載LED設定
+ */
+void led_pin_init()
+{
+  gpio_init(LED_PIN);
+  gpio_set_dir(LED_PIN, GPIO_OUT);
+}
 
+int main()
+{
   rcl_timer_t timer100;         /* Create timer object */
   rcl_node_t node;
   rcl_allocator_t allocator;
   rclc_support_t support;
   rclc_executor_t executor;
 
+  /*
+   * variables initialize
+   */
+  total_countA = 0;
+  total_countB = 0;
+  last_countA = 0;
+  last_countB = 0;
+  omegaA = 0;
+  omegaB = 0;
+  state = 0;
+  odometer = 0.0;
+  led = true;
+
+
+  rmw_uros_set_custom_transport(
+    true,
+    NULL,
+    pico_serial_transport_open,
+    pico_serial_transport_close,
+    pico_serial_transport_write,
+    pico_serial_transport_read
+    );
+
+  led_pin_init();
+  motor_control_pin_init();
+  eyes_init();
+
+  multicore_launch_core1(eyePattern);        /* EyePatternはcore1で走らせる */
+
   // Initialize micro-ROS allocator
   allocator = rcl_get_default_allocator();
-
-  // Wait for agent successful ping for 255 seconds.
-  const int timeout_ms = 1000; 
-  const uint8_t attempts = 255;
 
   mutex_init(&timer100_mutex);
   mutex_enter_blocking(&timer100_mutex);
@@ -404,7 +424,7 @@ int main()
       "cmd_vel"
       );
 
-    present_wheelState.data.capacity = 6;
+    present_wheelState.data.capacity = 7;
     present_wheelState.data.data = wheelState;
     present_wheelState.data.size = 0;
 

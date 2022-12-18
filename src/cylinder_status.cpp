@@ -1,5 +1,6 @@
 #include <chrono>
 
+#include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -36,23 +37,20 @@ void CylinderStatus::wheelStateCb(const std_msgs::msg::Float32MultiArray::Shared
   auto odom_msg = nav_msgs::msg::Odometry();
   auto state_msg = sensor_msgs::msg::JointState();
 
-  current_time_ = this->get_clock()->now();
-
   if (msg->data.size() < 1) return;
 
-  double wL     = msg->data[0]; // 車軸回転角速度
-  double jointL = msg->data[1]; // 車輪角度
-  double wR     = msg->data[3]; // 車軸回転角速度
-  double jointR = msg->data[4]; // 車輪角度
+  current_time_ = this->get_clock()->now();
 
-  //RCLCPP_INFO(this->get_logger(), "Subscribe wL: %lf  wR: %lf", wL, wR);
+  double vx     = msg->data[0]; // 車体X方向速度[m/s]
+  double vy     = msg->data[1]; // 車体Y方向速度[m/s]
+  double vth    = msg->data[2]; // 車体角速度[rad/s]
+  double wL     = msg->data[3]; // 左車軸回転角速度[rad/s]
+  double wR     = msg->data[4]; // 右車軸回転角速度[rad/s]
+  double jointL = msg->data[5]; // 左車輪角度
+  double jointR = msg->data[6]; // 右車輪角度
+  RCLCPP_DEBUG(this->get_logger(), 
+    "Subscribe vx: %f, vth: %f, wL: %lf  wR: %lf", vx, vth, wL, wR);
 
-  // 車軸回転角速度から車体速度と角速度を算出
-  double vx = WHEEL_RAD * (wR + wL) / 2;
-  double vy = 0.0;
-  double vth = WHEEL_RAD * (wR - wL) / WHEEL_SEP;
-  // RCLCPP_INFO(this->get_logger(), "Subscribe vx: %lf  vth: %lf", vx, vth);
- 
   double dt = current_time_.seconds() - last_time_.seconds();
   double delta_x = (vx * cos(th_) - vy * sin(th_)) * dt;
   double delta_y = (vx * sin(th_) + vy * cos(th_)) * dt;
