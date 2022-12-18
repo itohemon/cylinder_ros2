@@ -71,14 +71,18 @@ uint sliceNumB;
 uint chanB;
 
 /*
+ * 現在の速度[m/s], 角速度[rad/s]
+ */
+float current_vel;
+float current_omega;
+
+/*
  * 車輪の状態をpublishするための変数
  * 0:左角速度[rad/s]、 1:左角度[rad]、 2:左回転数[rpm]、 3:右角速度[rad/s]、 4:右角度[rad]、 5:右回転数[rpm]
  */
 static float wheelState[6];
 std_msgs__msg__Float32MultiArray present_wheelState;
-
-/* Publisher object */
-rcl_publisher_t publisher;
+rcl_publisher_t pub_wheelstate;
 
 /*
  * 走行距離をpublishするための変数
@@ -94,8 +98,49 @@ bool led;
 static mutex_t timer100_mutex;
 int timer100_count;
 
-void setMotorA(float);
-void setMotorB(float);
+void setMotorA(float value)
+{
+  if (value > 0)
+  {
+    gpio_put(AI1, 1);
+    gpio_put(AI2, 0);
+    pwm_set_chan_level(sliceNumA, chanA, value);
+  }
+  else if (value < 0)
+  {
+    gpio_put(AI1, 0);
+    gpio_put(AI2, 1);
+    pwm_set_chan_level(sliceNumA, chanA, value * (-1.0));
+  }
+  else
+  {
+    gpio_put(AI1, 0);
+    gpio_put(AI2, 0);
+    pwm_set_chan_level(sliceNumA, chanA, 0);
+  }
+}
+
+void setMotorB(float value)
+{
+  if (value > 0)
+  {
+    gpio_put(BI1, 0);
+    gpio_put(BI2, 1);
+    pwm_set_chan_level(sliceNumB, chanB, value);
+  }
+  else if (value < 0)
+  {
+    gpio_put(BI1, 1);
+    gpio_put(BI2, 0);
+    pwm_set_chan_level(sliceNumB, chanB, value * (-1.0));
+  }
+  else
+  {
+    gpio_put(BI1, 0);
+    gpio_put(BI2, 0);
+    pwm_set_chan_level(sliceNumB, chanB, 0);
+  }
+}
 
 void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
 {
@@ -109,7 +154,6 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   int feedback_valB = tcountB - last_countB;
   int targetA = target_valA;
   int targetB = target_valB;
-  float vel;
 
   n++;
   if ((n % 10) == 0) {
@@ -160,15 +204,16 @@ void timer100_callback(rcl_timer_t *timer, int64_t last_call_time)
   present_wheelState.data.data[5] = feedback_valB * INTR_HZ * 60.0 / PPR;
   present_wheelState.data.size = 6;
 
-  vel = WHEEL_RAD * (omegaA + omegaB) / 2.0;
-  float abs_vel = vel;
+  current_vel   = WHEEL_RAD * (omegaA + omegaB) / 2.0;
+  current_omega = WHEEL_RAD * (omegaB - omegaA) / WHEEL_SEP;
+  float abs_vel = current_vel;
   if (abs_vel < 0)
     abs_vel *= -1.0;
   odometer += abs_vel / INTR_HZ;
   presentOdometer.data = odometer;
 
   rcl_ret_t ret;
-  ret = rcl_publish(&publisher, &present_wheelState, NULL);
+  ret = rcl_publish(&pub_wheelstate, &present_wheelState, NULL);
   ret = rcl_publish(&pub_odometer, &presentOdometer, NULL);
   
   setMotorA(valueA);
@@ -196,50 +241,6 @@ void cmd_vel_Cb(const void * msgin)
   mutex_enter_blocking(&timer100_mutex);
   timer100_count = 0;
   mutex_exit(&timer100_mutex);
-}
-
-void setMotorA(float value)
-{
-  if (value > 0)
-  {
-    gpio_put(AI1, 1);
-    gpio_put(AI2, 0);
-    pwm_set_chan_level(sliceNumA, chanA, value);
-  }
-  else if (value < 0)
-  {
-    gpio_put(AI1, 0);
-    gpio_put(AI2, 1);
-    pwm_set_chan_level(sliceNumA, chanA, value * (-1.0));
-  }
-  else
-  {
-    gpio_put(AI1, 0);
-    gpio_put(AI2, 0);
-    pwm_set_chan_level(sliceNumA, chanA, 0);
-  }
-}
-
-void setMotorB(float value)
-{
-  if (value > 0)
-  {
-    gpio_put(BI1, 0);
-    gpio_put(BI2, 1);
-    pwm_set_chan_level(sliceNumB, chanB, value);
-  }
-  else if (value < 0)
-  {
-    gpio_put(BI1, 1);
-    gpio_put(BI2, 0);
-    pwm_set_chan_level(sliceNumB, chanB, value * (-1.0));
-  }
-  else
-  {
-    gpio_put(BI1, 0);
-    gpio_put(BI2, 0);
-    pwm_set_chan_level(sliceNumB, chanB, 0);
-  }
 }
 
 void readEncoder(uint gpio, uint32_t events)
@@ -408,7 +409,7 @@ int main()
     present_wheelState.data.size = 0;
 
     // Create a reliable rcl publisher
-    rclc_publisher_init_default(&publisher, &node,
+    rclc_publisher_init_default(&pub_wheelstate, &node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
       "wheel_state");
 
@@ -444,7 +445,7 @@ int main()
     gpio_put(LED_PIN, led);
 
     rclc_executor_fini(&executor);
-    rcl_publisher_fini(&publisher, &node);
+    rcl_publisher_fini(&pub_wheelstate, &node);
     rcl_publisher_fini(&pub_odometer, &node);
     rcl_timer_fini(&timer100);
     rcl_subscription_fini(&subscriber, &node);
