@@ -51,6 +51,20 @@ ament_target_dependencies(cylinder_status
   tf2_ros
   )
 
+add_executable(cylinder_eyes
+  src/cylinder_eyes.cpp
+  )
+target_include_directories(cylinder_eyes PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(cylinder_eyes
+  rclcpp
+  rclcpp_action
+  rclcpp_components
+  geometry_msgs
+  )
+target_link_libraries(cylinder_eyes pigpiod_if2 pthread)
+
 add_executable(imu2pose
   src/imu2pose.cpp
   )
@@ -146,6 +160,7 @@ endif()
 
 install(TARGETS
   cylinder_status
+  cylinder_eyes
   imu2pose
   reading_laser
   moving_robot

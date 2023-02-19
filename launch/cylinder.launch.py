@@ -32,7 +32,6 @@ def generate_launch_description():
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        namespace='cylinder',
         output='screen',
         parameters=[rsp_params, {'use_sim_time': use_sim_time}]
     )
@@ -40,7 +39,6 @@ def generate_launch_description():
     cylinder_status_node = Node(
         package='cylinder_ros2',
         executable='cylinder_status',
-        namespace='cylinder',
         parameters=[os.path.join(get_package_share_directory("cylinder_ros2"), 'config', 'cylinder_status.yaml')],
         output='screen'
     )
@@ -49,7 +47,6 @@ def generate_launch_description():
         package='micro_ros_agent',
         executable='micro_ros_agent',
         name='micro_ros_agent',
-        namespace='cylinder',
         arguments=["serial","--dev","/dev/ttyACM0"],
         output="screen"
     )
@@ -64,7 +61,7 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
-        remappings=[('odom0', '/cylinder/odom'), ('imu0', '/bno055/imu')],
+        remappings=[('odom0', '/odom'), ('imu0', '/bno055/imu')],
         parameters=[os.path.join(get_package_share_directory("cylinder_ros2"), 'config', 'ekf.yaml')]
     )
 
@@ -73,6 +70,12 @@ def generate_launch_description():
         executable='bno055',
         output='screen',
         parameters=[os.path.join(get_package_share_directory("cylinder_ros2"), 'config', 'bno055.yaml')]
+    )
+
+    cylinder_eyes_node = Node(
+        package='cylinder_ros2',
+        executable='cylinder_eyes',
+        output='screen'
     )
 
     return LaunchDescription([
@@ -92,6 +95,7 @@ def generate_launch_description():
         uros_agent_node,
 #       bno055_node,
 #       ekf_localization_node,
+        cylinder_eyes_node,
         cylinder_status_node
     ])
 
