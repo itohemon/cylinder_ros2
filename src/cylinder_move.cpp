@@ -26,8 +26,7 @@ private:
   void execute();
 
   /*** コールバック関数 ***/
-  void onGoalResponseReceived(
-    std::shared_future<GoalHandleCylinder::SharedPtr> future);
+  void onGoalResponseReceived(const GoalHandleCylinder::SharedPtr & goal_handle);
   void onFeedbackReceived(
     GoalHandleCylinder::SharedPtr goal_handle,
     const std::shared_ptr<const Cylinder::Feedback> feedback);
@@ -97,10 +96,8 @@ void CylinderMove::execute()
 }
 
 /*** アクション起動時に呼び出されるコールバック関数 ***/
-void CylinderMove::onGoalResponseReceived(
-  std::shared_future<GoalHandleCylinder::SharedPtr> future)
+void CylinderMove::onGoalResponseReceived(const GoalHandleCylinder::SharedPtr & goal_handle)
 {
-  auto goal_handle = future.get();
   if (!goal_handle) {
     RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
   } else {

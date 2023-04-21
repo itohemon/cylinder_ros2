@@ -20,7 +20,7 @@ public:
     
 private:
   void execute();
-  void onGoalResponseReceived(std::shared_future<GoalHandleFollowWaypoints::SharedPtr> future);
+  void onGoalResponseReceived(const GoalHandleFollowWaypoints::SharedPtr & goal_handle);
   void onFeedbackReceived(
 			  GoalHandleFollowWaypoints::SharedPtr,
 			  const std::shared_ptr<const FollowWaypoints::Feedback> feedback);
@@ -110,9 +110,8 @@ void WaypointFollowerClient::execute()
   rclcpp::shutdown();
 }
 
-void WaypointFollowerClient::onGoalResponseReceived(std::shared_future<GoalHandleFollowWaypoints::SharedPtr> future)
+void WaypointFollowerClient::onGoalResponseReceived(const GoalHandleFollowWaypoints::SharedPtr & goal_handle)
 {
-  auto goal_handle = future.get();
   if (!goal_handle) {
     RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
   } else {
