@@ -58,7 +58,7 @@ sudo systemctl enable pigpiod
 sudo systemctl start pigpiod
 sudo systemctl status pigpiod
 ```
-リブートして```ps``コマンドでpigpiodが立ち上がってるか確認する。
+リブートして ```ps``` コマンドでpigpiodが立ち上がってるか確認する。
 [参照] (https://qiita.com/mashi0727/items/1e25c4eea511968066ca)
 
 
