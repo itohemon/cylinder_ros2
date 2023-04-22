@@ -7,10 +7,10 @@
 #
 # ROS2
 #
-source /opt/ros/galactic/setup.bash
-source /home/ubuntu/microros_ws/install/setup.bash
-source /home/ubuntu/ros2_ws/install/setup.bash
-export PICO_SDK_PATH=/home/ubuntu/pico-sdk
+source /opt/ros/humble/setup.bash
+source /home/itohemon/microros_ws/install/setup.bash
+source /home/itohemon/ros2_ws/install/setup.bash
+export PICO_SDK_PATH=/home/itohemon/pico-sdk
 ```
 
 ### microROS実行環境セットアップ
@@ -20,7 +20,49 @@ export PICO_SDK_PATH=/home/ubuntu/pico-sdk
 ### LD06, BNO055のノードセットアップ
 [zennの記事](https://zenn.dev/katsuitoh/articles/af8b36a26ab66e)を参考にセットアップする
 
-## RaspberryPi Picoへのファームウェアインストール
+### pigpioのインストール
+```
+mkdir ~/tmp
+cd ~/tmp
+git clone https://github.com/joan2937/pigpio.git
+cd pigpio
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+```
+
+### pigpiodの自動起動設定
+```
+sudo vi /lib/systemd/system/pigpiod.service
+```
+
+ファイルの中身は以下。
+```
+[Unit]
+Description=Pigpio daemon
+
+[Service]
+Type=forking
+PIDFile=pigpio.pid
+ExecStart=/usr/local/bin/pigpiod -l -n 127.0.0.1 -s 10
+ExecStop=/usr/bin/systemctl kill pigpiod
+
+[Install]
+WantedBy=multi-user.target
+```
+起動確認。
+```
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+sudo systemctl status pigpiod
+```
+リブートして ```ps``` コマンドでpigpiodが立ち上がってるか確認する。
+[参照] (https://qiita.com/mashi0727/items/1e25c4eea511968066ca)
+
+
+## 母艦PCにてRaspberryPi Picoへのファームウェアインストール
 ```shell-session
 cd ~/ros2_ws/src/cylinder_ros2/
 mkdir build
