@@ -87,7 +87,8 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([ldlidar_pkg_dir, '/ldlidar.launch.py']),
             launch_arguments={
-                'serial_port': '/dev/ttyAMA1'
+                'serial_port': '/dev/ttyAMA1',
+                'lidar_frame': 'base_scan'
             }.items()
         ),
 
