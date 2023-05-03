@@ -161,15 +161,15 @@ void CylinderEyes::timerCb(void)
   double rate = vth / MAX_VTH * 100.0;
   if (rate < -70.0) {
     drawEyes(eyes_LL);
-  } else if ((rate >= -70.0) && (rate < -40.0)) {
+  } else if ((rate >= -70.0) && (rate < -30.0)) {
     drawEyes(eyes_L);
-  } else if ((rate >= -40.0) && (rate < -20.0)) {
+  } else if ((rate >= -30.0) && (rate < -10.0)) {
     drawEyes(eyes_CL);
-  } else if ((rate >= -20.0) && (rate < 20.0)) {
+  } else if ((rate >= -10.0) && (rate < 10.0)) {
     drawEyes(eyes_C);
-  } else if ((rate >=  20.0) && (rate < 40.0)) {
+  } else if ((rate >=  10.0) && (rate < 30.0)) {
     drawEyes(eyes_CR);
-  } else if ((rate >=  40.0) && (rate < 70.0)) {
+  } else if ((rate >=  30.0) && (rate < 70.0)) {
     drawEyes(eyes_R);
   } else {
     drawEyes(eyes_RR);

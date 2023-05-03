@@ -16,7 +16,7 @@ def generate_launch_description():
     map_dir = LaunchConfiguration(
         'map',
         default=os.path.join(
-            "/home/ubuntu/ros2_ws/src/cylinder_ros2/"
+            "/home/itohemon/ros2_ws/src/cylinder/cylinder_ros2/"
             'maps',
             NAV2_MAP,
             'map.yaml'))
